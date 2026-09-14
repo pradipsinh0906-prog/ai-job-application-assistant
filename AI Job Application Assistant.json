@@ -1,0 +1,369 @@
+{
+  "name": "AI Job Application Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Job Application Assistant",
+        "formDescription": "Paste your resume text OR upload a resume file, and paste the job description. You will receive a structured match analysis and a tailored cover letter.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Resume",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf"
+            },
+            {
+              "fieldLabel": "Resume Text",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "932404b7-33b7-49de-8f27-8ce15cc5bf9b",
+      "name": "Job Application Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        112
+      ],
+      "webhookId": "398a6d81-30b9-42d3-8c1d-bd11ce396155"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Resume",
+        "options": {
+          "joinPages": true,
+          "keepSource": "json"
+        }
+      },
+      "id": "de890fae-24d7-43a8-9cb4-2c2020b94f99",
+      "name": "Extract Resume PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        112
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "resume_text",
+              "name": "resume_text",
+              "type": "string",
+              "value": "={{ ($json.text && $json.text.trim().length > 0) ? $json.text : ($('Job Application Form').item.json['Resume Text'] || '') }}"
+            },
+            {
+              "id": "job_description",
+              "name": "job_description",
+              "type": "string",
+              "value": "={{ $('Job Application Form').item.json['Job Description'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cd55974b-386b-4716-8443-424d7bc0c2c0",
+      "name": "Normalize Inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.resume_text }}\nJob Description:\n{{ $json.job_description }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=CRITICAL SCORING RULE: If more than 50% of the JD's Required Skills are completely absent\nfrom the resume (not just \"less experienced in\", but entirely absent), the match_score MUST\nNOT exceed 35, regardless of how strong the candidate's other skills are."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "a2728c6d-f2a9-4b8f-a41c-e82ed85ec1d9",
+      "name": "Analyze Application",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"match_score\": 82,\n  \"recommendation\": \"Strong Match\",\n  \"fit_summary\": \"Concise 2-3 sentence summary of how well the candidate fits the role.\",\n  \"key_strengths\": [\n    \"Relevant strength aligned to the job description\",\n    \"Another matching qualification or achievement\"\n  ],\n  \"gaps\": [\n    \"A requirement from the JD the resume does not clearly address\"\n  ],\n  \"missing_ats_keywords\": [\n    \"keyword one\",\n    \"keyword two\",\n    \"keyword three\"\n  ],\n  \"cover_letter\": \"A tailored cover letter of 150-200 words addressed to the hiring team.\"\n}"
+      },
+      "id": "77542e05-b139-4b82-9b8f-d43b8b9c2615",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1cMaIZGSXwBDpYH3FuXhYG-okkRX2LY34D0e0Gv7nzPg",
+          "mode": "list",
+          "cachedResultName": "Job Applications Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cMaIZGSXwBDpYH3FuXhYG-okkRX2LY34D0e0Gv7nzPg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cMaIZGSXwBDpYH3FuXhYG-okkRX2LY34D0e0Gv7nzPg/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.format('dd MMM yyyy, hh:mm a') }}",
+            "Match Score": "={{ $json.output.match_score }}",
+            "Fit Summary": "={{ $json.output.fit_summary }}",
+            "Key Strengths": "={{ ($json.output.key_strengths || []).join('\\n') }}",
+            "Missing ATS Keywords": "={{ ($json.output.missing_ats_keywords || []).join(', ') }}",
+            "Cover Letter": "={{ $json.output.cover_letter }}",
+            "Job Description": "={{ $('Normalize Inputs').item.json.job_description }}",
+            "Recommendation ": "={{ $json.output.recommendation }}",
+            "Gaps ": "={{ $json.output.gaps.join(', ') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommendation ",
+              "displayName": "Recommendation ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fit Summary",
+              "displayName": "Fit Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Strengths",
+              "displayName": "Key Strengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Gaps ",
+              "displayName": "Gaps ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing ATS Keywords",
+              "displayName": "Missing ATS Keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "eca00842-6559-4649-8750-59b5aa4b10e3",
+      "name": "Save to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NP3rnZ2hNe1Hotae",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        672,
+        336
+      ],
+      "id": "0676b604-793d-4535-b09d-9a543677c359",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "FGmBq8y84WAcyfTy",
+          "name": "Groq account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Job Application Form": {
+      "main": [
+        [
+          {
+            "node": "Extract Resume PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Resume PDF": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Analyze Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Application": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze Application",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze Application",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cfaf1fde-2473-46fe-8abb-bfd409eb8263",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "786abb2425d5526b3d60e752bb206da5d947b0cd314340e293f62487b371d845"
+  },
+  "nodeGroups": [],
+  "id": "4yKXRCZaA9GwNVTM",
+  "tags": []
+}
