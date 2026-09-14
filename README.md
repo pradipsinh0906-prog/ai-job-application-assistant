@@ -27,7 +27,7 @@ AI-powered job application analyzer built with n8n, Groq AI, and Google Sheets. 
 
 ## 📸 Workflow Diagram
 
-*(screenshot add karva mate 'Add media' step follow karo)*
+<img width="1863" height="408" alt="n8n_workflow" src="https://github.com/user-attachments/assets/c394027b-3bdd-48a2-8576-77b507e8a5f7" />
 
 ## 📂 Files
 
